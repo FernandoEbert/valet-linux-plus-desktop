@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import CheckboxField from "../components/CheckboxField.vue";
 import type { LogFile, LogTail } from "../types/valet";
 
 const LINE_OPTIONS = [100, 200, 500, 1000, 2000];
@@ -73,17 +74,16 @@ onUnmounted(() => timer && clearInterval(timer));
     <div class="flex flex-wrap items-center gap-3">
       <select
         v-model="selected"
-        class="min-w-64 rounded-md border border-zinc-300 bg-white px-2 py-1.5 font-mono text-[13px] dark:border-zinc-700 dark:bg-zinc-900"
+        class="select min-w-64 font-mono text-[13px]"
+        aria-label="Log file"
         @focus="loadFiles"
       >
         <option v-for="file in options" :key="file.name" :value="file.name">{{ file.name }} ({{ size(file.size) }})</option>
       </select>
-      <select v-model.number="lines" class="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <select v-model.number="lines" class="select text-sm" aria-label="Lines">
         <option v-for="n in LINE_OPTIONS" :key="n" :value="n">last {{ n }} lines</option>
       </select>
-      <label class="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-        <input v-model="follow" type="checkbox" class="accent-zinc-900 dark:accent-zinc-100" /> Follow
-      </label>
+      <CheckboxField v-model="follow" class="text-sm text-zinc-600 dark:text-zinc-400">Follow</CheckboxField>
       <span v-if="tail" class="ml-auto text-xs text-zinc-500">{{ size(tail.size) }}</span>
     </div>
 
