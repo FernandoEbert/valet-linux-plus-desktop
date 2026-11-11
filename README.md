@@ -101,4 +101,4 @@ src-tauri/src/valet/
 
 ## License
 
-MIT
+[MIT](LICENSE)
