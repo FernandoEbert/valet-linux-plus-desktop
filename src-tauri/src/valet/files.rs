@@ -283,7 +283,8 @@ fn cli_php(runner: &dyn HostRunner, env: &HostEnv) -> CliPhp {
     };
     let path_str = path.to_string_lossy().into_owned();
     let version = runner
-        .run(&path_str, &["-r", "echo PHP_VERSION;"])
+        // Xdebug would try to reach a debug client (slow) and print noise.
+        .run(&path_str, &["-d", "xdebug.mode=off", "-r", "echo PHP_VERSION;"])
         .ok()
         .filter(|o| o.success())
         .and_then(|o| SEMVER_RE.find(o.stdout.trim()).map(|m| m.as_str().to_owned()));
@@ -395,6 +396,7 @@ mod tests {
             path: Some(std::env::join_paths([root.join("bin")]).unwrap()),
             usr_bin: root.join("usr/bin"),
             force_files: false,
+            helper: PathBuf::from("/nonexistent/valet-helper"),
         };
         let valet = env.valet_home();
 
@@ -444,7 +446,7 @@ mod tests {
 
     fn runner(fx: &Fixture) -> FakeRunner {
         FakeRunner::new()
-            .ok(&format!("{} -r echo PHP_VERSION;", fx.path("bin/php").display()), "8.3.36")
+            .ok(&format!("{} -d xdebug.mode=off -r echo PHP_VERSION;", fx.path("bin/php").display()), "8.3.36")
             .ok("/opt/valet --version", "ValetLinux+ 2.1.2\n")
             .ok(
                 SYSTEMCTL,
@@ -589,6 +591,7 @@ mod tests {
             path: None,
             usr_bin: tmp.path().join("missing"),
             force_files: false,
+            helper: PathBuf::from("/nonexistent/valet-helper"),
         };
         write(&env.valet_home().join("config.json"), r#"{"domain":"local","paths":[]}"#);
 
@@ -605,8 +608,13 @@ mod tests {
     #[test]
     fn errors_when_valet_is_not_installed() {
         let tmp = tempfile::tempdir().unwrap();
-        let env =
-            HostEnv { home: tmp.path().to_path_buf(), path: None, usr_bin: tmp.path().into(), force_files: false };
+        let env = HostEnv {
+            home: tmp.path().to_path_buf(),
+            path: None,
+            usr_bin: tmp.path().into(),
+            force_files: false,
+            helper: PathBuf::from("/nonexistent/valet-helper"),
+        };
         assert!(matches!(from_files(&FakeRunner::new(), &env, None), Err(StateError::NotInstalled(_))));
     }
 

@@ -13,7 +13,12 @@ pub struct HostEnv {
     pub usr_bin: PathBuf,
     /// Skip `valet state --json` and always read files (debug builds only, for parity checks).
     pub force_files: bool,
+    /// Privileged broker installed with the polkit policy by the .deb/.rpm packages.
+    pub helper: PathBuf,
 }
+
+/// Fixed path referenced by `org.freedesktop.policykit.exec.path` in the polkit policy.
+pub const PRIVILEGED_HELPER: &str = "/usr/libexec/valet-linux-plus-desktop/valet-helper";
 
 impl HostEnv {
     pub fn from_process() -> Self {
@@ -22,6 +27,7 @@ impl HostEnv {
             path: std::env::var_os("PATH"),
             usr_bin: PathBuf::from("/usr/bin"),
             force_files: cfg!(debug_assertions) && std::env::var_os("VALET_UI_FORCE_FILES").is_some(),
+            helper: PathBuf::from(PRIVILEGED_HELPER),
         }
     }
 

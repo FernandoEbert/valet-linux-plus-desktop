@@ -5,6 +5,7 @@
 //! runner that prefixes `flatpak-spawn --host` without touching the callers.
 
 use std::io::{self, Read};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -25,8 +26,14 @@ impl CommandOutput {
 }
 
 pub trait HostRunner: Send + Sync {
-    /// Runs `program` with `args` and waits for it, returning its captured output.
-    fn run(&self, program: &str, args: &[&str]) -> io::Result<CommandOutput>;
+    /// Runs `program` with `args` in `cwd` (or the current directory) and waits for it,
+    /// returning its captured output.
+    fn run_in(&self, program: &str, args: &[&str], cwd: Option<&Path>) -> io::Result<CommandOutput>;
+
+    /// Runs `program` with `args` in the current directory.
+    fn run(&self, program: &str, args: &[&str]) -> io::Result<CommandOutput> {
+        self.run_in(program, args, None)
+    }
 }
 
 /// Runs processes directly on the host with `std::process::Command`.
@@ -48,13 +55,13 @@ impl Default for NativeRunner {
 }
 
 impl HostRunner for NativeRunner {
-    fn run(&self, program: &str, args: &[&str]) -> io::Result<CommandOutput> {
-        let mut child = Command::new(program)
-            .args(args)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+    fn run_in(&self, program: &str, args: &[&str], cwd: Option<&Path>) -> io::Result<CommandOutput> {
+        let mut command = Command::new(program);
+        command.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        if let Some(cwd) = cwd {
+            command.current_dir(cwd);
+        }
+        let mut child = command.spawn()?;
 
         // Drain both pipes in background threads so a chatty process can't block on a full pipe
         // while we wait for it.
@@ -99,6 +106,7 @@ fn wait_with_timeout(child: &mut Child, timeout: Duration) -> io::Result<Option<
 pub mod fake {
     use super::{CommandOutput, HostRunner};
     use std::io;
+    use std::path::{Path, PathBuf};
     use std::sync::Mutex;
 
     /// Test double answering by the exact command line (`program arg1 arg2`).
@@ -106,6 +114,7 @@ pub mod fake {
     pub struct FakeRunner {
         responses: Vec<(String, io::Result<CommandOutput>)>,
         pub calls: Mutex<Vec<String>>,
+        pub cwds: Mutex<Vec<Option<PathBuf>>>,
     }
 
     impl FakeRunner {
@@ -117,12 +126,24 @@ pub mod fake {
             self.respond(command, 0, stdout)
         }
 
-        pub fn respond(mut self, command: &str, code: i32, stdout: &str) -> Self {
+        pub fn respond(self, command: &str, code: i32, stdout: &str) -> Self {
+            self.respond_full(command, code, stdout, "")
+        }
+
+        pub fn respond_full(mut self, command: &str, code: i32, stdout: &str, stderr: &str) -> Self {
             self.responses.push((
                 command.to_owned(),
-                Ok(CommandOutput { code: Some(code), stdout: stdout.to_owned(), stderr: String::new() }),
+                Ok(CommandOutput { code: Some(code), stdout: stdout.to_owned(), stderr: stderr.to_owned() }),
             ));
             self
+        }
+
+        pub fn last_call(&self) -> Option<String> {
+            self.calls.lock().unwrap().last().cloned()
+        }
+
+        pub fn last_cwd(&self) -> Option<PathBuf> {
+            self.cwds.lock().unwrap().last().cloned().flatten()
         }
 
         pub fn called(&self, command: &str) -> bool {
@@ -131,9 +152,10 @@ pub mod fake {
     }
 
     impl HostRunner for FakeRunner {
-        fn run(&self, program: &str, args: &[&str]) -> io::Result<CommandOutput> {
+        fn run_in(&self, program: &str, args: &[&str], cwd: Option<&Path>) -> io::Result<CommandOutput> {
             let line = std::iter::once(program).chain(args.iter().copied()).collect::<Vec<_>>().join(" ");
             self.calls.lock().unwrap().push(line.clone());
+            self.cwds.lock().unwrap().push(cwd.map(Path::to_path_buf));
             match self.responses.iter().find(|(cmd, _)| *cmd == line) {
                 Some((_, Ok(out))) => Ok(out.clone()),
                 Some((_, Err(e))) => Err(io::Error::new(e.kind(), e.to_string())),
@@ -152,6 +174,13 @@ mod tests {
         let out = NativeRunner::default().run("echo", &["$HOME", "a;b"]).unwrap();
         assert!(out.success());
         assert_eq!(out.stdout, "$HOME a;b\n");
+    }
+
+    #[test]
+    fn native_runner_honours_cwd() {
+        let tmp = tempfile::tempdir().unwrap();
+        let out = NativeRunner::default().run_in("pwd", &[], Some(tmp.path())).unwrap();
+        assert_eq!(out.stdout.trim(), std::fs::canonicalize(tmp.path()).unwrap().to_string_lossy());
     }
 
     #[test]

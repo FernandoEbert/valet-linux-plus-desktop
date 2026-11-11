@@ -38,7 +38,7 @@ mod tests {
     use crate::valet::runner::fake::FakeRunner;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     fn executable(path: &Path) {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -52,6 +52,7 @@ mod tests {
             path: Some(std::env::join_paths(path_dirs).unwrap()),
             usr_bin: root.join("usr/bin"),
             force_files: false,
+            helper: PathBuf::from("/nonexistent/valet-helper"),
         }
     }
 
