@@ -286,14 +286,17 @@ fn session() -> std::sync::MutexGuard<'static, SessionBroker> {
     SESSION.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Runs `action` on the real host within the app's privileged session (blocking).
+pub fn run_in_session(action: &Action) -> Result<ActionResult, ActionError> {
+    run_action(&NativeRunner::new(ACTION_TIMEOUT), &mut *session(), &HostEnv::from_process(), action)
+}
+
 #[tauri::command]
 pub async fn run_valet_action(action: Action) -> Result<ActionResult, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        run_action(&NativeRunner::new(ACTION_TIMEOUT), &mut *session(), &HostEnv::from_process(), &action)
-    })
-    .await
-    .map_err(|e| format!("action task failed: {e}"))?
-    .map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || run_in_session(&action))
+        .await
+        .map_err(|e| format!("action task failed: {e}"))?
+        .map_err(|e| e.to_string())
 }
 
 /// Whether privileged actions currently run without asking for the password again.
