@@ -2,13 +2,21 @@
 import { invoke } from "@tauri-apps/api/core";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { onMounted, ref } from "vue";
+import { storeToRefs } from "pinia";
 import ToggleSwitch from "../components/ToggleSwitch.vue";
+import { useUpdaterStore } from "../stores/updater";
 
 interface AppSettings {
   notify_service_down: boolean;
   close_to_tray: boolean;
   tray_available: boolean;
 }
+
+const updater = useUpdaterStore();
+const { currentVersion, kind, update, checking, lastChecked, supported } = storeToRefs(updater);
+const updateError = storeToRefs(updater).error;
+
+const kindLabel: Record<string, string> = { appimage: "AppImage", deb: ".deb package", rpm: ".rpm package" };
 
 const settings = ref<AppSettings | null>(null);
 const autostart = ref(false);
@@ -82,5 +90,33 @@ async function setAutostart(on: boolean): Promise<void> {
       />
     </section>
     <p v-else-if="!error" class="text-zinc-500">Loading…</p>
+
+    <section class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <h2 class="mb-3 text-xs font-semibold tracking-wide text-zinc-500 uppercase">Updates</h2>
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p>
+            Version <span class="font-mono">{{ currentVersion ?? "…" }}</span>
+            <span v-if="kind" class="text-zinc-500"> · {{ kindLabel[kind] }}</span>
+          </p>
+          <p class="mt-0.5 text-xs text-zinc-500">
+            <template v-if="!supported">Updates are only available in the AppImage, .deb and .rpm builds.</template>
+            <template v-else-if="checking">Checking…</template>
+            <template v-else-if="update">Version {{ update.version }} is available (see the banner above).</template>
+            <template v-else-if="lastChecked">You're up to date (checked at {{ lastChecked.toLocaleTimeString() }}).</template>
+            <template v-else>Checked automatically when the app starts.</template>
+          </p>
+          <p v-if="updateError" class="mt-1 font-mono text-xs text-red-600 dark:text-red-400">{{ updateError }}</p>
+        </div>
+        <button
+          type="button"
+          class="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium whitespace-nowrap hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          :disabled="!supported || checking"
+          @click="updater.checkForUpdates()"
+        >
+          Check for updates
+        </button>
+      </div>
+    </section>
   </div>
 </template>

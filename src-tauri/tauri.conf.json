@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Valet Linux+",
+  "productName": "Valet Linux Plus Desktop",
   "mainBinaryName": "valet-linux-plus-desktop",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "identifier": "com.ebertsystem.ValetLinuxPlus",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -28,15 +28,58 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "appimage",
+      "deb",
+      "rpm"
+    ],
+    "createUpdaterArtifacts": true,
+    "publisher": "Fernando Ebert",
+    "homepage": "https://github.com/FernandoEbert/valet-linux-plus-desktop",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
     "category": "DeveloperTool",
     "shortDescription": "Desktop UI for valet-linux-plus",
+    "longDescription": "Optional desktop app for valet-linux-plus: see and manage Valet services, sites, parked paths, PHP versions and logs, with a tray icon and service notifications. Every change goes through the valet CLI.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "pkexec | policykit-1"
+        ],
+        "files": {
+          "/usr/libexec/valet-linux-plus-desktop/valet-helper": "../packaging/linux/valet-helper",
+          "/usr/share/polkit-1/actions/com.ebertsystem.ValetLinuxPlus.policy": "../packaging/linux/com.ebertsystem.ValetLinuxPlus.policy"
+        },
+        "desktopTemplate": "../packaging/linux/valet-linux-plus-desktop.desktop.hbs"
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "libayatana-appindicator-gtk3",
+          "polkit"
+        ],
+        "files": {
+          "/usr/libexec/valet-linux-plus-desktop/valet-helper": "../packaging/linux/valet-helper",
+          "/usr/share/polkit-1/actions/com.ebertsystem.ValetLinuxPlus.policy": "../packaging/linux/com.ebertsystem.ValetLinuxPlus.policy"
+        },
+        "desktopTemplate": "../packaging/linux/valet-linux-plus-desktop.desktop.hbs"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNBREI2NjcyOTQzNEVFRUUKUldUdTdqU1VjbWJiT2prMXRtcFF0SGJaRCtBMDhHK1pobVpxS2hYdTlnU1llcW0ydUE2THYxQWgK",
+      "endpoints": [
+        "https://github.com/FernandoEbert/valet-linux-plus-desktop/releases/latest/download/latest.json"
+      ],
+      "requireSignedVersion": true
+    }
   }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "valet-linux-plus-desktop"
-version = "0.0.1"
+version = "0.1.0"
 description = "Optional desktop UI for valet-linux-plus"
 authors = ["Fernando Ebert"]
 license = "MIT"
@@ -26,6 +26,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 notify = "8.2.2"
 notify-debouncer-mini = "0.7.0"
+tauri-plugin-process = "2"
 
 [dev-dependencies]
 tempfile = "3"
@@ -41,3 +42,4 @@ strip = true
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"

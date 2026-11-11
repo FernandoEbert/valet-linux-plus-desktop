@@ -144,3 +144,16 @@ pub fn set_settings(shared: tauri::State<'_, Shared>, settings: Settings) -> Res
     *shared.settings.lock().unwrap_or_else(|p| p.into_inner()) = settings;
     Ok(get_settings(shared))
 }
+
+/// How this build was packaged: `appimage`, `deb` or `rpm`, or `None` for `tauri dev` and plain
+/// binaries. The updater can only install itself over a packaged build.
+#[tauri::command]
+pub fn install_kind() -> Option<String> {
+    use tauri::utils::config::BundleType;
+    tauri::utils::platform::bundle_type().and_then(|kind| match kind {
+        BundleType::AppImage => Some("appimage".to_owned()),
+        BundleType::Deb => Some("deb".to_owned()),
+        BundleType::Rpm => Some("rpm".to_owned()),
+        _ => None,
+    })
+}
