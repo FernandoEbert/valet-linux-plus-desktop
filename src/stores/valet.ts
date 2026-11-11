@@ -14,10 +14,15 @@ export const useValetStore = defineStore("valet", () => {
   let timer: ReturnType<typeof setInterval> | null = null;
 
   const isLimited = computed(() => state.value?.source === "files");
+  const globalPhp = computed(() => state.value?.php.global ?? null);
 
-  async function refresh(): Promise<void> {
+  /** `force` waits for an in-flight read and reads again (used right after an action). */
+  async function refresh(force = false): Promise<void> {
     // A slow `valet state` must not stack up calls from the poller.
-    if (loading.value) return;
+    if (loading.value) {
+      if (!force) return;
+      while (loading.value) await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 
     loading.value = true;
     try {
@@ -46,5 +51,5 @@ export const useValetStore = defineStore("valet", () => {
     }
   }
 
-  return { state, error, loading, lastUpdated, isLimited, refresh, startPolling, stopPolling };
+  return { state, error, loading, lastUpdated, isLimited, globalPhp, refresh, startPolling, stopPolling };
 });

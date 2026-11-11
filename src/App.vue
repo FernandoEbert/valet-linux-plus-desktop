@@ -2,10 +2,15 @@
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
+import logoMark from "./assets/logo-mark.svg";
+import ActionLog from "./components/ActionLog.vue";
 import SourceNotice from "./components/SourceNotice.vue";
+import { useActionsStore } from "./stores/actions";
 import { useValetStore } from "./stores/valet";
 
 const store = useValetStore();
+const actions = useActionsStore();
+const { sessionActive } = storeToRefs(actions);
 const { state, error, loading, lastUpdated } = storeToRefs(store);
 const route = useRoute();
 
@@ -14,18 +19,27 @@ const updatedAt = computed(() => lastUpdated.value?.toLocaleTimeString() ?? "—
 const nav = computed(() => [
   { to: "/", label: "Dashboard", count: null },
   { to: "/sites", label: "Sites", count: state.value?.sites.length ?? null },
+  { to: "/paths", label: "Paths", count: state.value?.paths.length ?? null },
+  { to: "/php", label: "PHP", count: null },
+  { to: "/logs", label: "Logs", count: null },
 ]);
 
-onMounted(() => store.startPolling());
+onMounted(() => {
+  store.startPolling();
+  void actions.refreshSession();
+});
 onUnmounted(() => store.stopPolling());
 </script>
 
 <template>
   <div class="flex h-full">
     <aside class="flex w-52 shrink-0 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div class="px-5 pt-5 pb-6">
-        <p class="text-base font-semibold tracking-tight">Valet Linux+</p>
-        <p class="text-xs text-zinc-500">{{ state?.valet_version ? `v${state.valet_version}` : "desktop" }}</p>
+      <div class="flex items-center gap-3 px-5 pt-5 pb-6">
+        <img :src="logoMark" alt="" class="h-6 w-auto shrink-0" />
+        <div class="min-w-0">
+          <p class="text-base leading-tight font-semibold tracking-tight">Valet Linux+</p>
+          <p class="text-xs text-zinc-500">{{ state?.valet_version ? `v${state.valet_version}` : "desktop" }}</p>
+        </div>
       </div>
       <nav class="flex flex-col gap-0.5 px-2">
         <RouterLink
@@ -45,12 +59,26 @@ onUnmounted(() => store.stopPolling());
       <header class="flex items-center justify-between gap-4 border-b border-zinc-200 px-6 py-3 dark:border-zinc-800">
         <h1 class="text-lg font-semibold">{{ title }}</h1>
         <div class="flex items-center gap-3">
+          <span
+            v-if="sessionActive"
+            class="inline-flex items-center gap-2 rounded-full bg-amber-50 py-1 pr-1 pl-3 text-xs text-amber-800 ring-1 ring-amber-200 ring-inset dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900"
+            title="Privileged actions won't ask for the password again until you end the session or close the app"
+          >
+            Admin session
+            <button
+              type="button"
+              class="rounded-full px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50"
+              @click="actions.endSession()"
+            >
+              End
+            </button>
+          </span>
           <span class="text-xs text-zinc-500" title="Refreshes every 5 seconds">Updated {{ updatedAt }}</span>
           <button
             type="button"
             class="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
             :disabled="loading"
-            @click="store.refresh()"
+            @click="store.refresh(true)"
           >
             <svg
               class="size-4"
@@ -83,5 +111,6 @@ onUnmounted(() => store.stopPolling());
         <p v-else-if="!error" class="text-zinc-500">Loading…</p>
       </main>
     </div>
+    <ActionLog />
   </div>
 </template>
