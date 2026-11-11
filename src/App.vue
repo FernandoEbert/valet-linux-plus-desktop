@@ -5,6 +5,8 @@ import { RouterLink, RouterView, useRoute } from "vue-router";
 import logoMark from "./assets/logo-mark.svg";
 import ActionLog from "./components/ActionLog.vue";
 import SourceNotice from "./components/SourceNotice.vue";
+import UpdateBanner from "./components/UpdateBanner.vue";
+import { useUpdaterStore } from "./stores/updater";
 import { useActionsStore } from "./stores/actions";
 import { useValetStore } from "./stores/valet";
 
@@ -25,9 +27,15 @@ const nav = computed(() => [
   { to: "/settings", label: "Settings", count: null },
 ]);
 
-onMounted(() => {
+const updater = useUpdaterStore();
+const { showBanner } = storeToRefs(updater);
+
+onMounted(async () => {
   void store.start();
   void actions.refreshSession();
+  // Background check once per launch; silent on errors (offline, GitHub down…).
+  await updater.init();
+  setTimeout(() => void updater.checkForUpdates(true), 5000);
 });
 onUnmounted(() => store.stop());
 
@@ -109,6 +117,7 @@ watch(lastUpdated, () => void actions.refreshSession());
           <p class="mt-0.5 font-mono text-xs">{{ error }}</p>
         </div>
 
+        <UpdateBanner v-if="showBanner" />
         <SourceNotice v-if="state" :state="state" class="mb-4" />
 
         <RouterView v-if="state" />
