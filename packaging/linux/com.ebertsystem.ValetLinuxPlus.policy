@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  Installed to /usr/share/polkit-1/actions/ by the .deb/.rpm packages, together with
+  /usr/libexec/valet-linux-plus-desktop/valet-helper.
+  The app starts the helper once per session (`valet-helper --broker <valet>`) and keeps it
+  alive while it runs, so the password is asked once per app session.
+-->
+<policyconfig>
+  <vendor>Valet Linux+</vendor>
+  <vendor_url>https://github.com/FernandoEbert/valet-linux-plus-desktop</vendor_url>
+  <icon_name>com.ebertsystem.ValetLinuxPlus</icon_name>
+
+  <action id="com.ebertsystem.ValetLinuxPlus.valet">
+    <description>Manage Valet services and sites</description>
+    <message>Authentication is required to manage Valet services and sites</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/valet-linux-plus-desktop/valet-helper</annotate>
+  </action>
+</policyconfig>

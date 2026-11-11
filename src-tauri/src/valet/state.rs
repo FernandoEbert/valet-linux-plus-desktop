@@ -42,7 +42,7 @@ mod tests {
     use crate::valet::runner::fake::FakeRunner;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     const V1: &str = include_str!("../../tests/fixtures/state_v1.json");
     const V2: &str = include_str!("../../tests/fixtures/state_v2.json");
@@ -59,6 +59,7 @@ mod tests {
             path: Some(std::env::join_paths([&bin]).unwrap()),
             usr_bin: root.join("usr/bin"),
             force_files: false,
+            helper: PathBuf::from("/nonexistent/valet-helper"),
         };
         fs::create_dir_all(env.valet_home()).unwrap();
         fs::write(env.valet_home().join("config.json"), r#"{"domain":"test","paths":[]}"#).unwrap();
@@ -136,7 +137,11 @@ mod tests {
     #[ignore = "needs valet >= 2.1.3 installed on this machine"]
     fn real_machine_cli_and_files_agree() {
         let runner = NativeRunner::default();
-        let env = HostEnv { force_files: false, ..HostEnv::from_process() };
+        let env = HostEnv {
+            force_files: false,
+            helper: PathBuf::from("/nonexistent/valet-helper"),
+            ..HostEnv::from_process()
+        };
         let cli = load_state(&runner, &env).unwrap();
         assert_eq!(cli.source, Source::Cli, "warnings: {:?}", cli.warnings);
 

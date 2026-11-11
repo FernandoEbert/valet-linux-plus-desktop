@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { open } from "@tauri-apps/plugin-dialog";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
+import LinkDialog from "../components/LinkDialog.vue";
 import SiteTable from "../components/SiteTable.vue";
 import { useValetStore } from "../stores/valet";
 
 const { state } = storeToRefs(useValetStore());
 const query = ref("");
+const linkPath = ref<string | null>(null);
 
 const sites = computed(() => {
   const all = state.value?.sites ?? [];
@@ -20,6 +23,11 @@ const sites = computed(() => {
     return terms.every((term) => haystack.includes(term));
   });
 });
+
+async function pickFolder(): Promise<void> {
+  const folder = await open({ directory: true, multiple: false, title: "Choose a folder to link" });
+  if (typeof folder === "string") linkPath.value = folder;
+}
 </script>
 
 <template>
@@ -33,8 +41,16 @@ const sites = computed(() => {
         autofocus
       />
       <span class="text-xs text-zinc-500 tabular-nums">{{ sites.length }} / {{ state?.sites.length ?? 0 }}</span>
+      <button
+        type="button"
+        class="ml-auto rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium whitespace-nowrap hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+        @click="pickFolder"
+      >
+        Link folder…
+      </button>
     </div>
 
-    <SiteTable :sites="sites" />
+    <SiteTable :sites="sites" :php-versions="state?.php.installed ?? []" />
+    <LinkDialog :path="linkPath" :domain="state?.domain ?? 'test'" @close="linkPath = null" />
   </div>
 </template>

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use super::error::StateError;
-use super::model::{SUPPORTED_SCHEMA_VERSION, Source, ValetState};
+use super::model::{SUPPORTED_SCHEMA_VERSION, Source, ValetState, clean_php_version};
 use super::runner::HostRunner;
 
 pub fn from_cli(runner: &dyn HostRunner, valet: &Path) -> Result<ValetState, StateError> {
@@ -14,6 +14,8 @@ pub fn from_cli(runner: &dyn HostRunner, valet: &Path) -> Result<ValetState, Sta
     }
 
     let mut state = parse(&out.stdout)?;
+    let cli = &mut state.php.cli;
+    cli.version = clean_php_version(cli.version.as_deref(), cli.binary.as_deref());
     state.source = Source::Cli;
     state.valet_path = Some(valet.to_string_lossy().into_owned());
     Ok(state)
@@ -121,6 +123,20 @@ mod tests {
     fn from_cli_fails_on_non_json_output() {
         let runner = FakeRunner::new().ok("/bin/valet state --json", "Command \"state\" is not defined.");
         assert!(matches!(from_cli(&runner, Path::new("/bin/valet")).unwrap_err(), StateError::InvalidJson(_)));
+    }
+
+    #[test]
+    fn cleans_cli_php_version_noise() {
+        let mut value: serde_json::Value = serde_json::from_str(V1).unwrap();
+        value["php"]["cli"]["version"] = serde_json::json!("8.5.12Xdebug: [Step Debug] Could not connect");
+        let runner = FakeRunner::new().ok("/bin/valet state --json", &value.to_string());
+        let state = from_cli(&runner, Path::new("/bin/valet")).unwrap();
+        assert_eq!(state.php.cli.version.as_deref(), Some("8.5.12"));
+
+        value["php"]["cli"]["version"] = serde_json::Value::Null;
+        let runner = FakeRunner::new().ok("/bin/valet state --json", &value.to_string());
+        let state = from_cli(&runner, Path::new("/bin/valet")).unwrap();
+        assert_eq!(state.php.cli.version.as_deref(), Some("8.3"), "falls back to the binary name");
     }
 
     #[test]

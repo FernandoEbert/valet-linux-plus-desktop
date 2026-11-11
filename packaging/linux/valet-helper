@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+#
+# Privileged broker for Valet Linux+ Desktop, started through pkexec once per app session.
+#
+#   pkexec /usr/libexec/valet-linux-plus-desktop/valet-helper --broker <valet>
+#   pkexec /bin/bash -c "<this script>" valet-helper --broker <valet>   (AppImage/dev, no policy)
+#
+# The app talks to it only through the stdin/stdout pipes it inherited, so nothing else can
+# reach it, and it exits as soon as the app closes stdin (app closed or crashed).
+#
+# Protocol (stdin): each request is a list of NUL-terminated arguments ended by an empty one.
+# Protocol (stdout):
+#   READY\n                                       once authenticated and validated
+#   RESULT <code> <stdout bytes> <stderr bytes>\n <stdout><stderr>
+#   ERROR <bytes>\n <message>                     request rejected, nothing ran
+#
+# Each request is a whitelisted privileged valet command, run the same way the `valet` script
+# does with `sudo env HOME=...`: HOME and SUDO_USER come from the calling user (PKEXEC_UID,
+# set by pkexec itself), so the CLI keeps writing ~/.config/valet as that user.
+#
+# One built-in that is not a valet command: `cli-php <x.y>` switches only the CLI `php`, with
+# the exact call `valet use <x.y> --update-cli` makes (update-alternatives --set php ...),
+# since the CLI has no command to do it without also switching the served version.
+
+set -uo pipefail
+
+die() {
+    printf 'valet-helper: %s\n' "$1" >&2
+    exit 64
+}
+
+reply_error() {
+    local LC_ALL=C
+    printf 'ERROR %d\n%s' "${#1}" "$1"
+}
+
+# Same list as SUDO_COMMANDS in the valet script, minus install/uninstall/proxy/nginx.
+allowed() {
+    case "$1" in
+        start | stop | restart | secure | unsecure | use | isolate | unisolate) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# The valet script must be a real, executable `valet` owned by root or by the calling user,
+# i.e. the same file the user would run with sudo. Prints the resolved path.
+resolve_valet() {
+    local real owner
+    [[ $valet == /* ]] || { echo "valet path must be absolute"; return 1; }
+    real=$(readlink -f -- "$valet") || { echo "cannot resolve $valet"; return 1; }
+    [[ -f $real && -x $real && $(basename -- "$real") == valet ]] || { echo "not a valet executable: $valet"; return 1; }
+    owner=$(stat -c %u -- "$real")
+    [[ $owner == 0 || $owner == "$PKEXEC_UID" ]] || { echo "valet must be owned by root or by the calling user"; return 1; }
+    printf '%s' "$real"
+}
+
+[[ -n ${PKEXEC_UID:-} ]] || die "must be run through pkexec"
+# VALET_HELPER_ALLOW_NON_ROOT only lets the test suite run the broker as a regular user;
+# pkexec clears the environment, so it can't be injected through it.
+[[ $EUID -eq 0 || ${VALET_HELPER_ALLOW_NON_ROOT:-} == 1 ]] || die "must be run through pkexec"
+[[ $# -eq 2 && $1 == --broker ]] || die "usage: valet-helper --broker <valet>"
+
+valet=$2
+passwd_entry=$(getent passwd "$PKEXEC_UID") || die "unknown uid $PKEXEC_UID"
+user=$(cut -d: -f1 <<<"$passwd_entry")
+home=$(cut -d: -f6 <<<"$passwd_entry")
+resolve_valet >/dev/null || die "$(resolve_valet)"
+
+workdir=$(mktemp -d) || die "cannot create a temporary directory"
+trap 'rm -rf -- "$workdir"' EXIT
+cd -- "$home" || die "cannot enter $home"
+
+printf 'READY\n'
+
+while true; do
+    args=()
+    complete=0
+    while IFS= read -r -d '' arg; do
+        if [[ -z $arg ]]; then
+            complete=1
+            break
+        fi
+        args+=("$arg")
+    done
+    ((complete)) || exit 0 # stdin closed: the app is gone
+
+    if ((${#args[@]} == 2)) && [[ ${args[0]} == cli-php ]]; then
+        version=${args[1]}
+        if [[ ! $version =~ ^[0-9]\.[0-9]{1,2}$ || ! -x /usr/bin/php$version ]]; then
+            reply_error "PHP $version is not installed (/usr/bin/php$version)"
+        elif ! command -v update-alternatives >/dev/null; then
+            reply_error "update-alternatives is not available on this system"
+        else
+            update-alternatives --set php "/usr/bin/php$version" >"$workdir/out" 2>"$workdir/err" </dev/null
+            code=$?
+            printf 'RESULT %d %d %d\n' "$code" "$(stat -c %s "$workdir/out")" "$(stat -c %s "$workdir/err")"
+            cat -- "$workdir/out" "$workdir/err"
+        fi
+        continue
+    fi
+
+    if ((${#args[@]} == 0)) || ! allowed "${args[0]}"; then
+        reply_error "command not allowed: ${args[0]:-}"
+        continue
+    fi
+    if ! real=$(resolve_valet); then
+        reply_error "$real"
+        continue
+    fi
+
+    env HOME="$home" SUDO_USER="$user" "$real" "${args[@]}" >"$workdir/out" 2>"$workdir/err" </dev/null
+    code=$?
+    printf 'RESULT %d %d %d\n' "$code" "$(stat -c %s "$workdir/out")" "$(stat -c %s "$workdir/err")"
+    cat -- "$workdir/out" "$workdir/err"
+done

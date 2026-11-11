@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { ref } from "vue";
 import type { Site, SiteType } from "../types/valet";
+import SiteActions from "./SiteActions.vue";
 
-defineProps<{ sites: Site[] }>();
+defineProps<{ sites: Site[]; phpVersions: string[] }>();
 
 const openError = ref<string | null>(null);
 
@@ -20,14 +20,6 @@ function phpSource(site: Site): string | null {
   return null;
 }
 
-async function open(site: Site): Promise<void> {
-  try {
-    openError.value = null;
-    await openUrl(site.url);
-  } catch (e) {
-    openError.value = `Could not open ${site.url}: ${String(e)}`;
-  }
-}
 </script>
 
 <template>
@@ -70,14 +62,7 @@ async function open(site: Site): Promise<void> {
               <span v-else class="text-zinc-400">—</span>
             </td>
             <td class="px-3 py-2 text-right whitespace-nowrap">
-              <button
-                type="button"
-                class="rounded px-2 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                :title="`Open ${site.url}`"
-                @click="open(site)"
-              >
-                Open ↗
-              </button>
+              <SiteActions :site="site" :php-versions="phpVersions" @error="openError = $event" />
             </td>
           </tr>
           <tr v-if="!sites.length">

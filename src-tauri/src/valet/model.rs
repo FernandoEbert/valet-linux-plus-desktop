@@ -112,6 +112,20 @@ pub struct Service {
     pub active: Option<bool>,
 }
 
+/// Clean PHP version for display. `valet state` <= 2.1.3 may glue extension noise to it
+/// (e.g. `8.5.12Xdebug: [Step Debug] Could not connect…`) or drop it when the noise comes first;
+/// keep the `x.y.z` part, or fall back to the version in the binary name (`php8.5` → `8.5`).
+pub fn clean_php_version(raw: Option<&str>, binary: Option<&str>) -> Option<String> {
+    static SEMVER: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"\d+\.\d+\.\d+").expect("valid regex"));
+    static BINARY: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"php(\d)\.?(\d+)$").expect("valid regex"));
+
+    raw.and_then(|v| SEMVER.find(v))
+        .map(|m| m.as_str().to_owned())
+        .or_else(|| binary.and_then(|b| BINARY.captures(b)).map(|c| format!("{}.{}", &c[1], &c[2])))
+}
+
 fn default_port() -> String {
     "80".to_owned()
 }

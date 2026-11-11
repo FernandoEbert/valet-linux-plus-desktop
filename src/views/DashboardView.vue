@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
+import ActionButton from "../components/ActionButton.vue";
 import InfoItem from "../components/InfoItem.vue";
 import ServiceCard from "../components/ServiceCard.vue";
 import { useValetStore } from "../stores/valet";
@@ -27,9 +28,22 @@ const cliMismatch = computed(() => {
 <template>
   <div v-if="state" class="flex flex-col gap-6">
     <section>
-      <h2 class="mb-3 text-xs font-semibold tracking-wide text-zinc-500 uppercase">Services</h2>
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Services</h2>
+        <ActionButton
+          :action="{ kind: 'restart', service: null }"
+          :options="{ label: 'Restarting all Valet services', confirm: 'Restart all Valet services?' }"
+        >
+          Restart all
+        </ActionButton>
+      </div>
       <div class="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-3">
-        <ServiceCard v-for="service in state.services" :key="service.name" :service="service" />
+        <ServiceCard
+          v-for="service in state.services"
+          :key="service.name"
+          :service="service"
+          :global-php="state.php.global"
+        />
       </div>
     </section>
 

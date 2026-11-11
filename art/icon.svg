@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12.5 -44.5 176 176" width="1024" height="1024">
+  <title>Valet Linux+</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EF6933"/>
+      <stop offset="0.5" stop-color="#A84B26"/>
+      <stop offset="1" stop-color="#5F2F1B"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#g)">
+    <path d="M59.5 48 L6.87 13.81 Q1 10 1 17 L1 79 Q1 86 6.87 82.19 Z"/>
+    <path d="M59.5 48 L112.13 13.81 Q118 10 118 17 L118 79 Q118 86 112.13 82.19 Z"/>
+  </g>
+  <path fill="url(#g)" d="M136.7 0.5 h2.6 v11.2 h11.2 v2.6 h-11.2 v11.2 h-2.6 v-11.2 h-11.2 v-2.6 h11.2 Z"/>
+</svg>

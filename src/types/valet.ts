@@ -52,3 +52,43 @@ export interface ValetState {
   valet_path: string | null;
   warnings: string[];
 }
+
+// Actions (src-tauri/src/valet/actions.rs): a closed set, validated again in Rust.
+
+export type ValetService = "nginx" | "php" | "dnsmasq" | "mysql" | "redis" | "mailpit";
+
+export type Action =
+  | { kind: "start" | "stop" | "restart"; service: ValetService | null }
+  | { kind: "park" | "forget"; path: string }
+  | { kind: "link"; path: string; name: string }
+  | { kind: "unlink"; name: string }
+  | { kind: "secure" | "unsecure" | "unisolate"; site: string }
+  | { kind: "isolate"; site: string; php: string }
+  | { kind: "use"; php: string; update_cli: boolean }
+  /** Only the CLI `php` (update-alternatives), without touching the version Valet serves. */
+  | { kind: "use_cli"; php: string };
+
+export interface ActionResult {
+  success: boolean;
+  code: number | null;
+  command: string;
+  privileged: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+// Logs (src-tauri/src/valet/logs.rs)
+
+export interface LogFile {
+  name: string;
+  size: number;
+  /** Unix seconds */
+  modified: number | null;
+}
+
+export interface LogTail {
+  name: string;
+  size: number;
+  lines: string[];
+  truncated: boolean;
+}
