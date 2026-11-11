@@ -1,4 +1,4 @@
-//! Entry point used by the Tauri command: CLI first, files fallback otherwise.
+//! Reads the Valet state: CLI first, files fallback otherwise.
 
 use super::cli::from_cli;
 use super::env::HostEnv;
@@ -27,12 +27,9 @@ pub fn load_state(runner: &dyn HostRunner, env: &HostEnv) -> Result<ValetState, 
     Ok(state)
 }
 
-#[tauri::command]
-pub async fn get_state() -> Result<ValetState, String> {
-    tauri::async_runtime::spawn_blocking(|| load_state(&NativeRunner::default(), &HostEnv::from_process()))
-        .await
-        .map_err(|e| format!("state task failed: {e}"))?
-        .map_err(|e| e.to_string())
+/// [`load_state`] against the real host.
+pub fn load_host_state() -> Result<ValetState, StateError> {
+    load_state(&NativeRunner::default(), &HostEnv::from_process())
 }
 
 #[cfg(test)]
