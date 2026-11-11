@@ -1,0 +1,85 @@
+{
+    "schema_version": 1,
+    "valet_version": "2.1.3",
+    "home": "/home/dev/.config/valet",
+    "domain": "test",
+    "port": "80",
+    "https_port": "443",
+    "php": {
+        "global": "8.5",
+        "cli": {
+            "path": "/usr/bin/php",
+            "binary": "/usr/bin/php8.3",
+            "version": "8.3.36"
+        },
+        "fallback_binary": "/usr/bin/php8.3",
+        "installed": ["8.1", "8.2", "8.3", "8.4", "8.5"]
+    },
+    "paths": [
+        "/home/dev/.config/valet/Sites",
+        "/home/dev/sites"
+    ],
+    "sites": [
+        {
+            "name": "api",
+            "domain": "api.test",
+            "url": "https://api.test",
+            "path": null,
+            "type": "proxy",
+            "secure": true,
+            "php": null,
+            "isolated_php": null,
+            "phprc_php": null,
+            "custom_nginx": false,
+            "proxy_host": "http://127.0.0.1:8080"
+        },
+        {
+            "name": "blog",
+            "domain": "blog.test",
+            "url": "http://blog.test",
+            "path": "/home/dev/sites/blog",
+            "type": "parked",
+            "secure": false,
+            "php": "8.5",
+            "isolated_php": null,
+            "phprc_php": null,
+            "custom_nginx": true,
+            "proxy_host": null
+        },
+        {
+            "name": "legacy",
+            "domain": "legacy.test",
+            "url": "http://legacy.test",
+            "path": "/home/dev/sites/legacy",
+            "type": "parked",
+            "secure": false,
+            "php": "7.4",
+            "isolated_php": null,
+            "phprc_php": "7.4",
+            "custom_nginx": false,
+            "proxy_host": null
+        },
+        {
+            "name": "shop",
+            "domain": "shop.test",
+            "url": "https://shop.test",
+            "path": "/home/dev/projects/shop",
+            "type": "linked",
+            "secure": true,
+            "php": "8.3",
+            "isolated_php": "8.3",
+            "phprc_php": null,
+            "custom_nginx": false,
+            "proxy_host": null
+        }
+    ],
+    "services": [
+        { "name": "nginx", "unit": "nginx", "active": true },
+        { "name": "dnsmasq", "unit": "dnsmasq", "active": true },
+        { "name": "php8.3", "unit": "php8.3-fpm", "active": true },
+        { "name": "php8.5", "unit": "php8.5-fpm", "active": false },
+        { "name": "mysql", "unit": "mariadb", "active": true },
+        { "name": "redis", "unit": "redis-server", "active": null },
+        { "name": "mailpit", "unit": "mailpit", "active": null }
+    ]
+}
