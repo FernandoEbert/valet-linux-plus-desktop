@@ -1,9 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import type { ValetState } from "../types/valet";
 
-export const POLL_INTERVAL_MS = 5000;
+/** Emitted by the backend monitor (src-tauri/src/app/monitor.rs) after every read. */
+const STATE_EVENT = "valet://state";
+const STATE_ERROR_EVENT = "valet://state-error";
 
 export const useValetStore = defineStore("valet", () => {
   const state = ref<ValetState | null>(null);
@@ -11,14 +14,23 @@ export const useValetStore = defineStore("valet", () => {
   const loading = ref(false);
   const lastUpdated = ref<Date | null>(null);
 
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let unlisten: UnlistenFn[] = [];
 
   const isLimited = computed(() => state.value?.source === "files");
   const globalPhp = computed(() => state.value?.php.global ?? null);
 
-  /** `force` waits for an in-flight read and reads again (used right after an action). */
+  function apply(next: ValetState): void {
+    state.value = next;
+    error.value = null;
+    lastUpdated.value = new Date();
+  }
+
+  /**
+   * Reads the state now. The backend monitor already pushes it every 5 s (30 s while hidden) and
+   * on file changes; this is for the Refresh button and right after an action.
+   * `force` waits for an in-flight read and reads again.
+   */
   async function refresh(force = false): Promise<void> {
-    // A slow `valet state` must not stack up calls from the poller.
     if (loading.value) {
       if (!force) return;
       while (loading.value) await new Promise((resolve) => setTimeout(resolve, 50));
@@ -26,9 +38,7 @@ export const useValetStore = defineStore("valet", () => {
 
     loading.value = true;
     try {
-      state.value = await invoke<ValetState>("get_state");
-      error.value = null;
-      lastUpdated.value = new Date();
+      apply(await invoke<ValetState>("get_state"));
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
     } finally {
@@ -36,20 +46,20 @@ export const useValetStore = defineStore("valet", () => {
     }
   }
 
-  function startPolling(intervalMs = POLL_INTERVAL_MS): void {
-    stopPolling();
-    void refresh();
-    timer = setInterval(() => {
-      if (document.visibilityState === "visible") void refresh();
-    }, intervalMs);
+  /** Subscribes to the backend monitor and loads the first state. */
+  async function start(): Promise<void> {
+    stop();
+    unlisten = await Promise.all([
+      listen<ValetState>(STATE_EVENT, (event) => apply(event.payload)),
+      listen<string>(STATE_ERROR_EVENT, (event) => (error.value = event.payload)),
+    ]);
+    await refresh();
   }
 
-  function stopPolling(): void {
-    if (timer !== null) {
-      clearInterval(timer);
-      timer = null;
-    }
+  function stop(): void {
+    unlisten.forEach((fn) => fn());
+    unlisten = [];
   }
 
-  return { state, error, loading, lastUpdated, isLimited, globalPhp, refresh, startPolling, stopPolling };
+  return { state, error, loading, lastUpdated, isLimited, globalPhp, refresh, start, stop };
 });

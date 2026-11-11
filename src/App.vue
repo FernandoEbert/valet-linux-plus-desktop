@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, watch } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import logoMark from "./assets/logo-mark.svg";
 import ActionLog from "./components/ActionLog.vue";
@@ -22,13 +22,17 @@ const nav = computed(() => [
   { to: "/paths", label: "Paths", count: state.value?.paths.length ?? null },
   { to: "/php", label: "PHP", count: null },
   { to: "/logs", label: "Logs", count: null },
+  { to: "/settings", label: "Settings", count: null },
 ]);
 
 onMounted(() => {
-  store.startPolling();
+  void store.start();
   void actions.refreshSession();
 });
-onUnmounted(() => store.stopPolling());
+onUnmounted(() => store.stop());
+
+// The privileged session may also be opened by the tray ("Restart all").
+watch(lastUpdated, () => void actions.refreshSession());
 </script>
 
 <template>
@@ -73,7 +77,7 @@ onUnmounted(() => store.stopPolling());
               End
             </button>
           </span>
-          <span class="text-xs text-zinc-500" title="Refreshes every 5 seconds">Updated {{ updatedAt }}</span>
+          <span class="text-xs text-zinc-500" title="Refreshes every 5 seconds and whenever ~/.config/valet changes">Updated {{ updatedAt }}</span>
           <button
             type="button"
             class="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
