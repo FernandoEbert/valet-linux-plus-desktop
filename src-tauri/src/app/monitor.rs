@@ -1,6 +1,10 @@
-//! Background state monitor: reads the Valet state every 5 s while the window is visible and
-//! every 30 s while hidden (or right away on a trigger), pushes it to the UI, updates the tray
-//! and notifies when a running service stops.
+//! Background state monitor: reads the Valet state right away on a trigger (the inotify watcher
+//! on `~/.config/valet` and the parked paths, the UI or the tray), pushes it to the UI, updates
+//! the tray and notifies when a running service stops.
+//!
+//! The periodic read is only a fallback in case a file event is missed (or a service stops,
+//! which changes no file): every 3 min while the window is visible and every 10 min while
+//! hidden. Every read runs `valet`, so polling more often only costs CPU and disk I/O.
 
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
@@ -12,8 +16,8 @@ use super::{Shared, tray, window};
 use crate::valet::model::{Service, ValetState};
 use crate::valet::state::load_host_state;
 
-pub const VISIBLE_INTERVAL: Duration = Duration::from_secs(5);
-pub const HIDDEN_INTERVAL: Duration = Duration::from_secs(30);
+pub const VISIBLE_INTERVAL: Duration = Duration::from_secs(3 * 60);
+pub const HIDDEN_INTERVAL: Duration = Duration::from_secs(10 * 60);
 
 /// Event with the full state after every read.
 pub const STATE_EVENT: &str = "valet://state";

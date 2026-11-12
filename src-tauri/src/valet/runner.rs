@@ -84,23 +84,50 @@ fn spawn_reader<R: Read + Send + 'static>(pipe: Option<R>) -> thread::JoinHandle
     })
 }
 
+/// Time a timed-out process gets to exit after `SIGTERM` before it is killed with `SIGKILL`.
+const TERMINATE_GRACE: Duration = Duration::from_secs(3);
+
 fn wait_with_timeout(child: &mut Child, timeout: Duration) -> io::Result<Option<i32>> {
-    let deadline = Instant::now() + timeout;
+    if let Some(code) = wait_until(child, Instant::now() + timeout)? {
+        return Ok(code);
+    }
+
+    // Ask first: a process that handles SIGTERM can finish what it is writing and exit cleanly.
+    terminate(child);
+    if wait_until(child, Instant::now() + TERMINATE_GRACE)?.is_none() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    Err(io::Error::new(io::ErrorKind::TimedOut, format!("process did not finish within {}s", timeout.as_secs())))
+}
+
+/// Polls `child` until it exits (`Some(exit code)`) or `deadline` passes (`None`).
+fn wait_until(child: &mut Child, deadline: Instant) -> io::Result<Option<Option<i32>>> {
     loop {
         if let Some(status) = child.try_wait()? {
-            return Ok(status.code());
+            return Ok(Some(status.code()));
         }
         if Instant::now() >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                format!("process did not finish within {}s", timeout.as_secs()),
-            ));
+            return Ok(None);
         }
         thread::sleep(Duration::from_millis(10));
     }
 }
+
+#[cfg(unix)]
+fn terminate(child: &Child) {
+    if let Ok(pid) = libc::pid_t::try_from(child.id()) {
+        // SAFETY: `pid` belongs to a child we spawned and have not reaped yet (`try_wait` returned
+        // `None`), so it cannot have been recycled for another process.
+        unsafe {
+            libc::kill(pid, libc::SIGTERM);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn terminate(_child: &Child) {}
 
 #[cfg(test)]
 pub mod fake {
@@ -187,6 +214,29 @@ mod tests {
     fn native_runner_reports_exit_code() {
         let out = NativeRunner::default().run("false", &[]).unwrap();
         assert_eq!(out.code, Some(1));
+    }
+
+    #[test]
+    fn native_runner_lets_timed_out_process_handle_sigterm() {
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("terminated");
+        let script = format!("trap 'touch {}; exit 0' TERM; while :; do sleep 0.05; done", marker.display());
+
+        let err = NativeRunner::new(Duration::from_millis(200)).run("sh", &["-c", &script]).unwrap_err();
+
+        assert_eq!(err.kind(), io::ErrorKind::TimedOut);
+        assert!(marker.exists(), "the SIGTERM handler should have run before the kill");
+    }
+
+    #[test]
+    fn native_runner_kills_process_that_ignores_sigterm() {
+        let started = Instant::now();
+        let err = NativeRunner::new(Duration::from_millis(100))
+            .run("sh", &["-c", "trap '' TERM; while :; do sleep 0.05; done"])
+            .unwrap_err();
+
+        assert_eq!(err.kind(), io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < TERMINATE_GRACE + Duration::from_secs(2));
     }
 
     #[test]

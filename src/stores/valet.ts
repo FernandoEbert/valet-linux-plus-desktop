@@ -26,8 +26,8 @@ export const useValetStore = defineStore("valet", () => {
   }
 
   /**
-   * Reads the state now. The backend monitor already pushes it every 5 s (30 s while hidden) and
-   * on file changes; this is for the Refresh button and right after an action.
+   * Reads the state now. The backend monitor already pushes it on file changes and, as a fallback,
+   * every 3 min (10 min while hidden); this is for the Refresh button and right after an action.
    * `force` waits for an in-flight read and reads again.
    */
   async function refresh(force = false): Promise<void> {
