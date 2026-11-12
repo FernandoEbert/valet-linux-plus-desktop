@@ -85,7 +85,7 @@ watch(lastUpdated, () => void actions.refreshSession());
               End
             </button>
           </span>
-          <span class="text-xs text-zinc-500" title="Refreshes every 5 seconds and whenever ~/.config/valet changes">Updated {{ updatedAt }}</span>
+          <span class="text-xs text-zinc-500" title="Refreshes whenever ~/.config/valet changes, and every 3 minutes as a fallback">Updated {{ updatedAt }}</span>
           <button
             type="button"
             class="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"

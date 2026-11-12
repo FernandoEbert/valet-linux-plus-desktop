@@ -13,7 +13,7 @@ pub fn is_visible(app: &AppHandle) -> bool {
 }
 
 /// Shows, restores and focuses the main window, and refreshes the state right away
-/// (it may be up to 30 s old while hidden).
+/// (it may be up to 10 min old while hidden).
 pub fn show(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN) {
         let _ = window.show();
